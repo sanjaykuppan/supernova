@@ -345,6 +345,8 @@ class billwindow:
     
 
 def MainWindow():
+    global l
+    l=[]
     bw=billwindow()
     bbox=Toplevel()
     bbox.title("Billing")
@@ -384,11 +386,13 @@ def MainWindow():
     Ecd=Entry(frame1,text="Customer Detail",bd=10,validate='key',width=40)
     Ecd['validatecommand']=(Ecd.register(Val),'%d',41,'%P')
     Ecd.grid(row=1,column=1)
+    Ecd.delete(0,'end')
     Lan=Label(frame1,text="\tEnter Aadhaar Number")
     Lan.grid(row=1,column=2)
     Ean=Entry(frame1,text="Aadhar Number",bd=10,validate='key',width=13)
     Ean['validatecommand']=(Ean.register(intval),'%d',13,'%P')
     Ean.grid(row=1,column=3)
+    Ean.delete(0,'end')
     Ldr=Label(frame1,text="\tDate :")
     Ldr.grid(row=1,column=4)
     date=datetime.date.today().strftime("%d-%m-%Y")
