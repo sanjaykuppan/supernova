@@ -6,7 +6,7 @@ import sqlite3
 import stockwin as stk
 import salewin as sale
 import billwin as bill  #with printer
-import billwin1 as bill1 #without printer
+#import billwin1 as bill1 #without printer
 import returnwin as ret
 import win32com.client
 
