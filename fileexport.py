@@ -6,6 +6,8 @@ import os.path
 from tkinter import *
 from tkinter import messagebox
 import datetime
+import getstoredata as gstrdata
+from tkinter import ttk
 
 def exportfile():
     exbox=Toplevel()
@@ -43,6 +45,16 @@ def exportfile():
                 if not len(value)==0:
                     return False
                 return True
+        def block(ins):    
+            if ins=='1' or ins=='0':
+                return False
+            elif ins=='-1':
+                return True
+        Lit=Label(top,text="Item type")
+        Lit.grid(row=1,column=5)
+        Ei=ttk.Combobox(top,width=20,values=gstrdata.getitemtype(),validate='key')
+        Ei.grid(row=1,column=6)
+        Ei['validatecommand']=(Ei.register(block),'%d')
         Ld=Label(top,text="DD")
         Ld.grid(row=0,column=2)
         Lm=Label(top,text="MM")
@@ -125,17 +137,25 @@ def exportfile():
                     endte=str(endate.strftime("%d%m"))
                     entime=str(datetime.datetime.now().time().strftime("%H%M"))
                     fname="salesfile "+std+"-"+endte+"-"+entime+".xlsx"
+                    itsel=Ei.get()
                     con.execute("DROP TABLE IF EXISTS temp")
+                    con.execute("DROP TABLE IF EXISTS temp1")
                     con.commit()
-                    sql="CREATE TABLE IF NOT EXISTS temp AS SELECT Itemcode,Description,Qty,utype,HSN,Price,CGST,SGST,cost,AadharNumber,CustomerDetail,Bill,Date,Return FROM sales WHERE bill IN ({seq})".format(seq=','.join(['?']*len(lis)))
+                    sql="CREATE TABLE IF NOT EXISTS temp AS SELECT Itemcode,Description,Qty,utype,HSN,Price,CGST,SGST,discount,cost,AadharNumber,CustomerDetail,Bill,Date,Return,Itemtype FROM sales WHERE bill IN ({seq})".format(seq=','.join(['?']*len(lis)))
                     con.execute(sql,lis)
-                    df=pd.read_sql_query("SELECT * from temp",con)
+                    if itsel=='':
+                        sql="CREATE TABLE IF NOT EXISTS temp1 AS SELECT Itemcode,Description,Qty,utype,HSN,Price,CGST,SGST,discount,cost,AadharNumber,CustomerDetail,Bill,Date,Return,Itemtype FROM temp WHERE itemtype is '%s'"%(itsel)
+                        con.execute(sql)
+                        df=pd.read_sql_query("SELECT * from temp1",con)
+                    else:
+                        df=pd.read_sql_query("SELECT * from temp",con)
                     writer=pd.ExcelWriter(fname)
                     df.to_excel(writer,'sheet1','B1',index=False)
                     writer.save()
                     mes=fname+"has been successfully created!!!"
                     messagebox.showinfo(parent=top,title="Success",message=mes)
                     con.execute("DROP TABLE IF EXISTS temp")
+                    con.execute("DROP TABLE IF EXISTS temp1")
                     con.commit()
                     con.close()
                     Esd.delete(0,'end')
@@ -155,7 +175,7 @@ def exportfile():
             return
         But=Button(top,text="Submit",command=sub)
         But.grid(row=3,column=5,padx=10,pady=10)
-        
+    
     Bst=Button(exbox,text="Export Stock Data",command=stock)
     Bst.pack(side='top',pady=10)
     Bsa=Button(exbox,text="Export Sales Data",command=sale)

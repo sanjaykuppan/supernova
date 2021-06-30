@@ -1,10 +1,12 @@
 import os.path
 from tkinter import *
 from tkinter import messagebox
+from tkinter import ttk
 import sqlite3
 import workdb as wdb
 import datetime
-
+import json
+import getstoredata as gstrdata
 
 class stockwindow:
     def checkfile(self,fname):
@@ -23,6 +25,11 @@ class stockwindow:
                 if not len(value)<maxlen:
                     return False 
             return True
+        def block(ins):    
+            if ins=='1' or ins=='0':
+                return False
+            elif ins=='-1':
+                return True
         def intval(ins,maxlen,value):
             try:
                 val=int(value)    
@@ -47,11 +54,24 @@ class stockwindow:
                 if not len(value)==0:
                     return False
                 return True
+        #Item type array is fetched from storedetail.json file.
+        if os.path.isfile("storedetail.json"):
+            a=os.path.abspath(os.getcwd())+"\storedetail.json"
+            f=open(a)
+            data=json.load(f)
+            itype=data["itemtype"]
+        else:
+            itype=[]
         E1=Entry(ent,text="ITEM CODE",bd=10,validate="key",width=5)
         E1['validatecommand']=(E1.register(intval),'%d',6,'%P')
         E1.place(x=200,y=50)
         L1=Label(ent,text="Enter Item code")
         L1.place(x=25,y=50)
+        Li=Label(ent,text="Item Type")
+        Li.place(x=300,y=50)
+        Ei=ttk.Combobox(ent,width=20,values=itype,validate='key')
+        Ei.place(x=380,y=50)
+        Ei['validatecommand']=(Ei.register(block),'%d')
         E2=Entry(ent,text="stock i/p invoice Number",bd=10,validate="key",width=20)
         E2['validatecommand']=(E2.register(Val),'%d',20,'%P')
         E2.place(x=200,y=100)
@@ -122,7 +142,7 @@ class stockwindow:
         R2.place(x=300,y=520)
         #Definiton to check and add value to pcf file
         def AddCheck():
-            a=E1.get() and E2.get() and E3.get() and E4.get() and E5.get() and E8.get() and E9.get() and E10.get()
+            a=E1.get() and E2.get() and E3.get() and E4.get() and E5.get() and E8.get() and E9.get() and E10.get() and Ei.get()
             b=E6d.get() and E6m.get() and E6y.get() and E7d.get() and E7m.get() and E7y.get()
             if a and b:
                 try:
@@ -142,6 +162,7 @@ class stockwindow:
                     ved=str(v7y)+'-'+str(v7m)+'-'+str(v7d)#EXP date
                     v9=E9.get()#Price
                     v10=E10.get()#units
+                    v11=Ei.get()#item type
                     vr1=(vr.get()).upper()#utype
                     try:
                         datetime.date(v6y,v6m,v6d)
@@ -160,7 +181,7 @@ class stockwindow:
                     return
                 try:
                     con=sqlite3.connect('MSW.db')
-                    con.execute("""insert into stock (Itemcode,Description,HSN,MFG,EXP,GST,Dealer,InvoiceNumber,Price,Units,Utype) values(?,?,?,?,?,?,?,?,?,?,?);""",(v1,v4,v5,vmd,ved,v8,v3,v2,v9,v10,vr1))
+                    con.execute("""insert into stock (Itemcode,Description,HSN,MFG,EXP,GST,Dealer,InvoiceNumber,Price,Units,Utype,Itemtype) values(?,?,?,?,?,?,?,?,?,?,?,?);""",(v1,v4,v5,vmd,ved,v8,v3,v2,v9,v10,vr1,v11))
                     con.commit()
                     con.close()
                     messagebox.showinfo(parent=ent,title="Sucess",message="Product added Successfully")
@@ -178,6 +199,7 @@ class stockwindow:
                     E8.delete(0,'end')
                     E9.delete(0,'end')
                     E10.delete(0,'end')
+                    Ei.current(0)
                     R2.select()
                     ent.lift()
                     return
@@ -206,9 +228,9 @@ class stockwindow:
             ans=messagebox.askquestion(parent=w,title="No Stock file",message="Press Yes to created new file")
             if ans=='yes':
                 con=sqlite3.connect('MSW.db')
-                con.execute('''create table stock (Itemcode int primary key not null,Description text not null,HSN int not null,MFG int not null,EXP int not null,GST float not null,Dealer text not null,InvoiceNumber text not null,Price float not null,Units int not null,Utype text not null);''')
+                con.execute('''create table stock (Itemcode int primary key not null,Description text not null,HSN int not null,MFG int not null,EXP int not null,GST float not null,Dealer text not null,InvoiceNumber text not null,Price float not null,Units int not null,Utype text not null,Itemtype text not null);''')
                 con.commit()
-                con.execute('''create table sales (Itemcode int not null,Description text not null,Qty float not null,utype text not null,HSN int not null,Price not null,CGST float not null,SGST float not null,cost float not null,AadharNumber int not null,CustomerDetail text not null,Bill text not null,Date int not null,Return text not null);''')
+                con.execute('''create table sales (Itemcode int not null,Description text not null,Qty float not null,utype text not null,HSN int not null,Price not null,CGST float not null,SGST float not null,discount float not null,cost float not null,AadharNumber int not null,CustomerDetail text not null,Bill text not null,Date int not null,Return text not null,Itemtype text not null);''')
                 con.commit()
                 messagebox.showinfo(parent=w,title='Success',message='Stock file created')
                 con.close()
@@ -216,9 +238,20 @@ class stockwindow:
             return         
         return
     #Definition for stock view
-    def stockview(self,w):
+    def stockview(self,w,itype):
         if self.checkfile('msw.db'):
-            wdb.view('msw.db','stock',w)
+            con=sqlite3.connect("MSW.db")
+            con.execute("DROP TABLE IF EXISTS temp")
+            con.commit()
+            if itype!='':
+                sql="CREATE TABLE IF NOT EXISTS temp AS SELECT Itemcode,Description,HSN,MFG,EXP,GST,Dealer,InvoiceNumber,Price,Units,Utype,Itemtype FROM stock WHERE itemtype is '%s'"%(itype)
+                con.execute(sql)
+                wdb.view('msw.db','temp',w)
+            else:
+                wdb.view('msw.db','stock',w)
+            con.execute("DROP TABLE IF EXISTS temp")
+            con.commit()
+            con.close()
             return
         else:
             messagebox.showinfo(parent=w,title='File not found',message=' No stock file!!')
@@ -232,23 +265,37 @@ class stockwindow:
             messagebox.showinfo(parent=w,title='File not found',message='No stock file !!')
             return
 
+
 #stock window definiton
 def stockwin():
     sw=stockwindow()
     sbox=Toplevel()
     sbox.title("Stock Window")
-    sbox.geometry("900x650")
+    sbox.geometry("500x450")
+    def block(ins):    
+            if ins=='1' or ins=='0':
+                return False
+            elif ins=='-1':
+                return True
+    itype=gstrdata.getitemtype()
     B1=Button(sbox,text="Stock I/P",command=lambda x=sbox:sw.stockinput(x))
-    B1.place(x=500,y=100)
-    B2=Button(sbox,text="View Stock",command=lambda x=sbox:sw.stockview(x))
-    B2.place(x=500,y=150)
+    B1.pack(side='top',pady=30)
+    frametop=Frame(sbox,bd=10)
+    frametop.pack(side='top')
+    Lit=Label(frametop,text="Item type")
+    Lit.pack(side='left')
+    Ei=ttk.Combobox(frametop,width=20,values=itype,validate='key')
+    Ei.pack(side='left')
+    Ei['validatecommand']=(Ei.register(block),'%d')
+    B2=Button(sbox,text="View Stock",command=lambda x=sbox:sw.stockview(x,Ei.get()))
+    B2.pack(side='top',pady=10)
     B3=Button(sbox,text="Update stock",command=lambda x=sbox:sw.stockupdate(x))
-    B3.place(x=500,y=200)
+    B3.pack(side='top',pady=10)
     def close():
         sbox.destroy()
         return
     BE=Button(sbox,text="  Exit  ",command=close)
-    BE.place(x=850,y=600)
+    BE.pack(side='top',pady=15)
     sbox.lift()
     sbox.mainloop()
     return

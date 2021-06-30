@@ -63,7 +63,7 @@ def MainWindow():
     B2.place(x=500,y=250)
     B3=Button(box,text="Return",command =lambda box=box: mw1.ReturnProduct(box),font='Times')
     B3.place(x=500,y=300)
-    B4=Button(box,text="Sales File",command =lambda box=box: mw1.SalesFile(box),font='Times')
+    B4=Button(box,text="Sales and Stock File",command =lambda box=box: mw1.SalesFile(box),font='Times')
     B4.place(x=500,y=350)
     #Definiton to exit Full Screen
     def FullScreen():

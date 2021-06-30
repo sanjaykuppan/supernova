@@ -5,6 +5,9 @@ from tkinter import *
 from tkinter import messagebox
 import datetime
 import workdb as wdb
+import json
+from tkinter import ttk
+import getstoredata as gstrdata
 
 
 def sale(): # for sales export to Excel
@@ -24,6 +27,13 @@ def sale(): # for sales export to Excel
             if not len(value)==0:
                 return False
             return True
+    
+    itype=gstrdata.getitemtype()
+    def block(ins):    
+            if ins=='1' or ins=='0':
+                return False
+            elif ins=='-1':
+                return True
     Ld=Label(top,text="DD")
     Ld.grid(row=0,column=2)
     Lm=Label(top,text="MM")
@@ -52,6 +62,11 @@ def sale(): # for sales export to Excel
     Eey=Entry(top,text="End date yyyy",bd=2,validate="key",width=4)
     Eey.grid(row=2,column=4)
     Eey["validatecommand"]=(Eey.register(intval),'%d',5,'%P')
+    Lit=Label(top,text="Item type")
+    Lit.grid(row=1,column=5)
+    Ei=ttk.Combobox(top,width=20,values=itype,validate='key')
+    Ei.grid(row=1,column=6)
+    Ei['validatecommand']=(Ei.register(block),'%d')
     def sub():
         a=Esd.get() and Esm.get() and Esy.get() and Eed.get() and Eem.get() and Eey.get()
         if a:
@@ -67,6 +82,7 @@ def sale(): # for sales export to Excel
                 if stdate>datetime.date.today() or endate>datetime.date.today() or stdate>endate:
                     print (1/0)
                 con=sqlite3.connect("MSW.db")
+                itsel=str(Ei.get())
                 cur=con.execute("select bill,date from sales")
                 tel=cur.fetchall()
                 lis=[]
@@ -108,10 +124,18 @@ def sale(): # for sales export to Excel
                 fname="salesfile "+std+"-"+endte+"-"+entime+".xlsx"
                 con.execute("DROP TABLE IF EXISTS temp")
                 con.commit()
-                sql="CREATE TABLE IF NOT EXISTS temp AS SELECT Itemcode,Description,Qty,utype,HSN,Price,CGST,SGST,cost,AadharNumber,CustomerDetail,Bill,Date,Return FROM sales WHERE bill IN ({seq})".format(seq=','.join(['?']*len(lis)))
+                con.execute("DROP TABLE IF EXISTS temp1")
+                con.commit()
+                sql="CREATE TABLE IF NOT EXISTS temp AS SELECT Itemcode,Description,Qty,utype,HSN,Price,CGST,SGST,discount,cost,AadharNumber,CustomerDetail,Bill,Date,Return,Itemtype FROM sales WHERE bill IN ({seq})".format(seq=','.join(['?']*len(lis)))
                 con.execute(sql,lis)
-                wdb.view('msw.db','temp',top)
+                if str(Ei.get())!='':
+                    sql="CREATE TABLE IF NOT EXISTS temp1 AS SELECT Itemcode,Description,Qty,utype,HSN,Price,CGST,SGST,discount,cost,AadharNumber,CustomerDetail,Bill,Date,Return,Itemtype FROM temp WHERE itemtype is '%s'"%(itsel)
+                    con.execute(sql)
+                    wdb.view('msw.db','temp1',top)
+                else:
+                    wdb.view('msw.db','temp',top)
                 con.execute("DROP TABLE IF EXISTS temp")
+                con.execute("DROP TABLE IF EXISTS temp1")
                 con.commit()
                 con.close()
             except:

@@ -7,6 +7,9 @@ import win32ui
 import win32print
 import time
 import win32com.client
+import json
+import os.path
+import getstoredata as gstrdata
 
 global l,boxup,billup,printerflag
 l=[]
@@ -93,7 +96,7 @@ class AutocompleteEntry(Entry):
 
 class billwindow:
     
-    def addproduct(self,frame2,tv):
+    def addproduct(self,frame2,tv,twd,td,Ediscount,Adbut,Rdbut,disaflag,disrflag):
         global boxup
         try:
             a=self.box.winfo_exists()
@@ -125,12 +128,14 @@ class billwindow:
             gst=DoubleVar()
             gstv=DoubleVar()
             cval=DoubleVar()
+            itype=StringVar()
             def block(ins):
                 if ins=='1' or ins=='0':
                     return False
                 elif ins=='-1':
                     return True
             Lprice=Label(master=self.box,text='Price')
+            Litype=Label(master=self.box,text='Item Type')
             Ld=Label(master=self.box,text='Description')
             Lqty=Label(self.box,text='Quantity Available')
             Lqtype=Label(self.box,text='Quantity type')
@@ -139,6 +144,8 @@ class billwindow:
             Lsgst=Label(self.box,text='SGST')
             Lat=Label(self.box,text='@')
             Lval=Label(self.box,text='Cost')
+            Eitype=Entry(self.box,text='Item type',textvariable=itype,validate='key')
+            Eitype['validatecommand']=(Eitype.register(block),'%d')
             Ed=Entry(self.box,text='description',textvariable=desc,validate='key')
             Ed['validatecommand']=(Ed.register(block),'%d')
             Eprice=Entry(self.box,text='Price',textvariable=price,validate='key')
@@ -155,6 +162,8 @@ class billwindow:
             Esgst['validatecommand']=(Esgst.register(block),'%d')
             Eval=Entry(self.box,text='Quantity cost',textvariable=cval,validate='key')
             Eval['validatecommand']=(Eval.register(block),'%d')
+            Litype.grid(row=1,column=3,ipadx=6)
+            Eitype.grid(row=1,column=4)
             Ld.grid(row=2,column=3,ipadx=6)
             Ed.grid(row=2,column=4)
             Lprice.grid(row=3,column=3)
@@ -172,13 +181,14 @@ class billwindow:
             Lqreq.grid(row=10,column=3,ipady=20)
             Lval.grid(row=10,column=7)
             Eval.grid(row=10,column=8)
-            ic=IntVar()
+            ic=IntVar() #item code text variable
+            
             ilist=[]
             def fetch():
                 t=eic.get()
                 con=sqlite3.connect('MSW.db')
                 try:
-                    stkd=con.execute("select description,hsn,gst,price,units,utype from stock where itemcode is %s"%(t))
+                    stkd=con.execute("select description,hsn,gst,price,units,utype,itemtype from stock where itemcode is %s"%(t))
                     ic.set(eic.get())
                     d=stkd.fetchall()
                     desc.set(d[0][0])
@@ -188,6 +198,7 @@ class billwindow:
                     gstv.set(round((gst.get()/200)*price.get(),2))  #get gst value for one piece(CGST or SGST)
                     q.set(d[0][4])
                     qt.set(d[0][5])
+                    itype.set(d[0][6])
                 except:
                     messagebox.showinfo(parent=self.box,title='Error',message="Wrong input")
                 con.close()
@@ -267,6 +278,13 @@ class billwindow:
                                     v[0].config(text=sno)
                                     sno=sno+1
                             tv.set(round((tv.get()-cval.get()),1))
+                            Ediscount.config(state="normal")
+                            td.set(0)
+                            twd.set(round(tv.get()))
+                            Adbut.config(state="active")
+                            Rdbut.config(state="disabled")
+                            disaflag.set("active")
+                            disrflag.set("disabled")
                             return
                         Delb=Button(frameitem,text="Delete",command=delitem)
                         L1.pack(side='left',padx=5)
@@ -281,6 +299,7 @@ class billwindow:
                         E10.pack(side='left',padx=5)
                         Delb.pack(side='left',padx=5)
                         tv.set(round((tv.get()+cval.get()),2))
+                        twd.set(round(tv.get()))
                         ilist.append(L1)
                         ilist.append(E2)
                         ilist.append(E3)
@@ -291,8 +310,16 @@ class billwindow:
                         ilist.append(E8)
                         ilist.append(E9)
                         ilist.append(E10)
+                        ilist.append(itype.get())
                         l.append(ilist)
                         self.box.destroy()
+                        Ediscount.config(state="normal")
+                        td.set(0)
+                        itype.set('')
+                        Adbut.config(state="active")
+                        Rdbut.config(state="disabled")
+                        disaflag.set("active")
+                        disrflag.set("disabled")
                         return
                     else:
                         messagebox.showinfo(parent=self.box,title='Error',message='Quantity not available !! check entry')
@@ -308,7 +335,7 @@ class billwindow:
                 boxup=0
         return
     #command to bill product
-    def billproduct(self,bbox,ecd,ean,date,bnt,cv):
+    def billproduct(self,bbox,ecd,ean,date,bnt,cv,edis,twd):
         global l,printerflag
         aadharnumber=ean.get()
         customerdet=ecd.get()
@@ -322,6 +349,9 @@ class billwindow:
         if len(str(ecd.get()))<1:
             messagebox.showinfo(parent=bbox,title="Error",message="Enter Customer Detail")
             return
+        if edis.get()>str(cv):
+            messagebox.showinfo(parent=bbox,title="Error",message="Discount is greater than total cost")
+            return
         if l!=[]:
             for v in l:
                 itemcode=str(v[1].get())
@@ -332,17 +362,34 @@ class billwindow:
                 price=str(v[6].get())
                 sgst=str(v[7].get())
                 cgst=str(v[8].get())
+                discount=str(edis.get())
                 total=str(v[9].get())
+                itemtype=str(v[10])
                 con=sqlite3.connect('MSW.db')
-                con.execute('''insert into sales (itemcode,description,qty,utype,hsn,price,cgst,sgst,cost,AadharNumber,CustomerDetail,bill,date,return) values(?,?,?,?,?,?,?,?,?,?,?,?,?,?);''',(itemcode,description,qty,utype,hsn,price,cgst,sgst,total,aadharnumber,customerdet,bill,date,ret))
+                con.execute('''insert into sales (itemcode,description,qty,utype,hsn,price,cgst,sgst,discount,cost,AadharNumber,CustomerDetail,bill,date,return,Itemtype) values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);''',(itemcode,description,qty,utype,hsn,price,cgst,sgst,discount,total,aadharnumber,customerdet,bill,date,ret,itemtype))
                 qaval=con.execute("select units from stock where itemcode is %s"%(itemcode))
                 a=(str(qaval.fetchone()[0]))
                 qupd=int(a)-int(qty)
                 con.execute(" update stock set units = %s where itemcode = %s"%(qupd,itemcode))
                 con.commit()
                 con.close()
-            #code for printer output
+            #code for printer output create a storedetail.json file to feed store details
             if printerflag:
+                if os.path.isfile("storedetail.json"):
+                    strname=gstrdata.getdata("Store")
+                    phno=gstrdata.getdata("number")
+                    gst=gstrdata.getdata("gst")
+                    branch=gstrdata.getdata("branch")
+                    licno=gstrdata.getlicno(itemtype)
+                    tinno=gstrdata.gettinno()
+                else:
+                    strname="Agro center"
+                    phno=""
+                    gst=""
+                    branch=""
+                    licno=""
+                    tinno=""
+                
                 x=0;y=0  #mark x and y for co-ordinates for printing
                 #try:
                 hDC=win32ui.CreateDC()
@@ -354,15 +401,17 @@ class billwindow:
                 font2=win32ui.CreateFont({'name':'Arial','height':30,'weight':40})
                 hDC.SelectObject(font)
                 x=10
-                hDC.TextOut(x,y,"Sri Krishna Agro Center")
-                hDC.SelectObject(font1)
-                y=40;x=0
-                hDC.TextOut(x,y,"Sakthi Sri Nagar, Keelmaruvathur")
-                y+=30;x=0;hDC.TextOut(x,y,"Pin-603319, cell:9443964571")
-                x=0;y+=30;hDC.TextOut(x,y,"Lic:CMR 03/2016 SL.no:830/MDS/06")
-                y+=30;hDC.TextOut(x,y,"FL.No. 43/RR/KPM/2017-2020")
-                y+=30;hDC.TextOut(x,y,"GSTN: 33CMIPS8049DIZU")
-                y+=30;hDC.TextOut(x,y,curdate+"  "+curtime)
+                hDC.TextOut(x,y,strname)
+                y+=30;x=0
+                hDC.TextOut(x,y,"Branch:"+branch)
+                y+=30;x=0
+                hDC.TextOut(x,y,"GST:"+gst)
+                y+=30;x=0
+                hDC.TextOut(x,y,"LIC. NO:"+licno)
+                y+=30;x=0
+                hDC.TextOut(x,y,"TIN.No:"+tinno)
+                y+=30;x=0
+                hDC.TextOut(x,y,"Ph.no:"+phno)
                 y+=30;x=0
                 hDC.TextOut(x,y,"Aadhar number:"+aadharnumber)
                 y+=30
@@ -401,8 +450,10 @@ class billwindow:
                 x+=280;hDC.TextOut(x,y,str(round(gsttot,2)))
                 y+=40;x=0;hDC.TextOut(x,y,"SGST")
                 x+=280;hDC.TextOut(x,y,str(round(gsttot,2)))
+                x=0;y+=40;hDC.TextOut(x,y,"Discount")
+                x+=280;hDC.TextOut(x,y,str(round(discount,2)))
                 x=0;y+=40;hDC.TextOut(x,y,"Total Amount Payable")
-                x+=280;hDC.TextOut(x,y,str(round(gtot,2)))
+                x+=280;hDC.TextOut(x,y,str(round(gtot-discount)))
                 y+=60;x=120;hDC.TextOut(x,y,"Thank You!")
                 #finally:
                 hDC.EndPage()
@@ -527,18 +578,55 @@ def MainWindow():
         canvas.create_window((5,5),window=frame2,anchor="nw")
         def onFrameConfigure(canvas):
             canvas.configure(scrollregion=canvas.bbox("all"))
+        def disapply(disaflag,disrflag,td,twd,adb,rdb,edis):
+            if(disaflag.get()=="active" and td.get()!=0 and twd.get()>td.get()):
+                disaflag.set("disabled")
+                disrflag.set("active")
+                adb.config(state=disaflag.get())
+                rdb.config(state=disrflag.get())
+                twd.set(round(twd.get()-td.get()))
+                edis.config(state='disabled')
+        def disremove(disaflag,disrflag,td,twd,adb,rdb,edis):
+            if(disrflag.get()=="active" and td.get()!=0 ):
+                disrflag.set("disabled")
+                disaflag.set("active")
+                rdb.config(state=disrflag.get())
+                adb.config(state=disaflag.get())
+                twd.set(round(twd.get()+td.get()))
+                td.set(0)
+                edis.config(state='normal')
         frame2.bind("<Configure>",lambda event,canvas=canvas:onFrameConfigure(canvas))
-        tv=DoubleVar()#amount to be paid in total
+        tv=DoubleVar()#amount to be paid without discount
+        td=DoubleVar(0)#discount amount in total
+        twd=DoubleVar()
+        disaflag=StringVar()
+        disrflag=StringVar()
+        disaflag.set("active")
+        disrflag.set("disabled")
         frameb=Frame(MainWindow.bbox,height=200)
         frameb.pack(side='top',fill='x')
-        add=Button(frameb,text='Add Item',command=lambda w=frame2,tv=tv:bw.addproduct(w,tv))
-        add.grid(row=0,column=5,padx=500)
+        Ediscount=Entry(frameb,text='Discount',textvariable=td,validate='key',width=10)
+        Ediscount['validatecommand']=(Ediscount.register(intval),'%d',5,'%P')
+        add=Button(frameb,text='Add Item',command=lambda td=td,twd=twd,w=frame2,tv=tv:bw.addproduct(w,tv,twd,td,Ediscount,Adbut,Rdbut,disaflag,disrflag))
+        add.grid(row=0,column=8,padx=500)
+        Ldiscount=Label(frameb,text='Discount\tRs.')
+        Ldiscount.grid(row=0,column=2)
+        Ediscount.grid(row=0,column=3)
+        Lwdiscount=Label(frameb,text='Total Amount Without discount\tRs.')
+        Lwdiscount.grid(row=0,column=6)
+        Etotal=Entry(frameb,text="total without discount",textvariable=tv,validate='key',width=10)
+        Etotal['validatecommand']=(Etotal.register(block),'%d')
+        Etotal.grid(row=0,column=7)
+        Adbut=Button(frameb,text="Apply",state=disaflag.get(),command=lambda disaflag=disaflag,disrflag=disrflag,td=td,twd=twd:disapply(disaflag,disrflag,td,twd,Adbut,Rdbut,Ediscount))
+        Adbut.grid(row=0,column=4)
+        Rdbut=Button(frameb,text="Remove",state=disrflag.get(),command=lambda disaflag=disaflag,disrflag=disrflag,td=td,twd=twd:disremove(disaflag,disrflag,td,twd,Adbut,Rdbut,Ediscount))
+        Rdbut.grid(row=0,column=5)
         billphoto=PhotoImage(file='bill.png')
-        billitem=Button(frameb,image=billphoto,command=lambda w=MainWindow.bbox,ecd=Ecd,ean=Ean,date=date,bnt=bnt,tv=tv:bw.billproduct(w,ecd,ean,date,bnt,tv))
+        billitem=Button(frameb,image=billphoto,command=lambda twd=twd,edis=Ediscount,w=MainWindow.bbox,ecd=Ecd,ean=Ean,date=date,bnt=bnt,tv=tv:bw.billproduct(w,ecd,ean,date,bnt,tv,edis,twd))
         billitem.grid(row=1,column=1,padx=50)
         Lc=Label(frameb,text='Payable Amount\tRs.')
         Lc.grid(row=1,column=2)
-        Ec=Entry(frameb,text='Payable amount',textvariable=tv,validate='key',width=10)
+        Ec=Entry(frameb,text='Payable amount',textvariable=twd,validate='key',width=10)
         Ec['validatecommand']=(Ec.register(block),'%d')
         Ec.grid(row=1,column=3)
         def ex():

@@ -37,7 +37,7 @@ def salewin():
     img=PhotoImage(file='saleswindow.png')
     L=Label(salebox,image=img)
     L.pack(side='top',pady=50)
-    Bv=Button(salebox,text='View sales file',command=lambda w=salebox:saw.Viewsales(w))
+    Bv=Button(salebox,text='View sales ',command=lambda w=salebox:saw.Viewsales(w))
     Bv.pack(side='top',pady=10)
     Be=Button(salebox,text='Export to file',command=saw.export)
     Be.pack(side='top',pady=0)
