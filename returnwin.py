@@ -19,7 +19,8 @@ def returnwin():
     Eg=Entry(frameget,text="bill number entry")
     Eg.pack(side='left')
     def getdet():
-        s=str(Eg.get().upper())
+        s1=str(Eg.get().upper())
+        s=s1.replace(" ","")
         if len(s)==13:
             con=sqlite3.connect("MSW.db")
             cur=con.execute("select bill,return,date from sales")
@@ -103,6 +104,8 @@ def returnwin():
                 Lcust.pack(side='left')
                 Lan=Label(frametitle,text="\t\tAadhar number")
                 Lan.pack(side='left')
+                #Ldis=Label(frametitle,text='Discount')
+                #Ldis.pack(side='left')
                 canvas=Canvas(retbox2)
                 frame2=Frame(canvas,height=300,width=300)
                 frame2.pack(side='top')
@@ -126,7 +129,9 @@ def returnwin():
                         return False
                     elif ins=='-1':
                         return True
+                 
                 for i in det:
+                    #print(i)
                     ic=StringVar(value=i[0])
                     desc=StringVar(value=i[1])
                     hsn=StringVar(value=i[4])
@@ -135,9 +140,12 @@ def returnwin():
                     price=StringVar(value=i[5])
                     cgst=StringVar(value=i[6])
                     sgst=StringVar(value=i[7])
-                    cost=StringVar(value=i[8])
-                    custdet=StringVar(value=i[10])
-                    aadharnum=StringVar(value=i[9])
+                    disc=StringVar(value=i[8])
+                    cost=StringVar(value=i[9])
+                    custdet=StringVar(value=i[11])
+                    aadharnum=StringVar(value=i[10])
+                    billno=StringVar(value=i[11])
+                    retsts=StringVar(value=i[12])
                     labelnum=labelnum+1
                     frameitem=Frame(frame2,bd=20)
                     frameitem.pack(side='top')
@@ -164,6 +172,8 @@ def returnwin():
                     E11['validatecommand']=(E11.register(block),'%d')
                     E12=Entry(frameitem,text="Aadhar number",validate='key',textvariable=aadharnum,width=15)
                     E12['validatecommand']=(E12.register(block),'%d')
+                    #E13=Entry(frameitem,text="Discount",validate='key',textvariable=disc,width=15)
+                    #E13['validatecommand']=(E13.register(block),'%d')
                     def retitem(ic,qty,cost):
                         #code to return item
                         msg=str("Return succcessful! Please refund Rs."+cost.get())
@@ -189,6 +199,7 @@ def returnwin():
                     E10.pack(side='left',padx=5)
                     E11.pack(side='left',padx=5)
                     E12.pack(side='left',padx=5)
+                    #E13.pack(side='left',padx=5)
                     Retbut.pack(side='left',padx=5)
                 con.close
                 def ex():
