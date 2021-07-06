@@ -337,6 +337,7 @@ class billwindow:
     #command to bill product
     def billproduct(self,bbox,ecd,ean,date,bnt,cv,edis,twd):
         global l,printerflag
+        #printerflag=True  #set this to true to get printer output by default and for testing without printer
         aadharnumber=ean.get()
         customerdet=ecd.get()
         bill=bnt
@@ -376,18 +377,22 @@ class billwindow:
             #code for printer output create a storedetail.json file to feed store details
             if printerflag:
                 if os.path.isfile("storedetail.json"):
-                    strname=gstrdata.getdata("Store")
+                    strname=gstrdata.getdata("store")
                     phno=gstrdata.getdata("number")
                     gst=gstrdata.getdata("gst")
                     branch=gstrdata.getdata("branch")
-                    licno=gstrdata.getlicno(itemtype)
+                    seed=gstrdata.getdata("Seed")
+                    pesticide=gstrdata.getdata("Pesticide")
+                    fertilizer=gstrdata.getdata("Fertilizer")
                     tinno=gstrdata.gettinno()
                 else:
                     strname="Agro center"
                     phno=""
                     gst=""
                     branch=""
-                    licno=""
+                    seed=""
+                    pesticide=""
+                    fertilizer=""
                     tinno=""
                 
                 x=0;y=0  #mark x and y for co-ordinates for printing
@@ -402,12 +407,17 @@ class billwindow:
                 hDC.SelectObject(font)
                 x=10
                 hDC.TextOut(x,y,strname)
-                y+=30;x=0
-                hDC.TextOut(x,y,"Branch:"+branch)
+                hDC.SelectObject(font1)
+                y+=40;x=0
+                hDC.TextOut(x,y,("Branch:"+branch+" Date:"+curdate+" "+curtime))
                 y+=30;x=0
                 hDC.TextOut(x,y,"GST:"+gst)
                 y+=30;x=0
-                hDC.TextOut(x,y,"LIC. NO:"+licno)
+                hDC.TextOut(x,y,"S.L. NO:"+seed)
+                y+=30;x=0
+                hDC.TextOut(x,y,"P.L. NO:"+pesticide)
+                y+=30;x=0
+                hDC.TextOut(x,y,"F.L. NO:"+fertilizer)
                 y+=30;x=0
                 hDC.TextOut(x,y,"TIN.No:"+tinno)
                 y+=30;x=0
@@ -419,22 +429,22 @@ class billwindow:
                 y+=30
                 hDC.TextOut(x,y,"Bill No."+bill)
                 x=0;y+=30
-                hDC.TextOut(x,y,"Item code  Item")
-                x=320;hDC.TextOut(x,y,"Qty")
-                x=30;y+=30;hDC.TextOut(x,y,"Price")
-                x+=80;hDC.TextOut(x,y,"CGST")
-                x+=80;hDC.TextOut(x,y,"SGST")
+                hDC.TextOut(x,y,"code  Item")
+                x=350;hDC.TextOut(x,y,"Qty")
+                #x=30;y+=30;hDC.TextOut(x,y,"Price")
+                #x+=80;hDC.TextOut(x,y,"CGST")
+                #x+=80;hDC.TextOut(x,y,"SGST")
                 x+=80;hDC.TextOut(x,y,"cost")
                 #sno=1#count
                 gtot=0;gsttot=0;tot=0
                 for v in l:
                     y+=30;x=0
                     hDC.TextOut(x,y,str(v[1].get())+"  "+str(v[2].get()))
-                    x=320
+                    x=340
                     hDC.TextOut(x,y,str(v[4].get()))#QTY
-                    x=30;y+=30;hDC.TextOut(x,y,str(v[6].get()))#price of one qty
-                    x+=80;hDC.TextOut(x,y,str(float(v[7].get())))#CGST
-                    x+=80;hDC.TextOut(x,y,str(float(v[7].get())))#SGST
+                    #x=30;y+=30;hDC.TextOut(x,y,str(v[6].get()))#price of one qty
+                    #x+=80;hDC.TextOut(x,y,str(float(v[7].get())))#CGST
+                    #x+=80;hDC.TextOut(x,y,str(float(v[7].get())))#SGST
                     gsttot+=float(v[7].get())*float(v[4].get()) #CGST or SGST Total
                     x+=80
                     hDC.TextOut(x,y,str(float(v[9].get())))#cost
@@ -451,9 +461,9 @@ class billwindow:
                 y+=40;x=0;hDC.TextOut(x,y,"SGST")
                 x+=280;hDC.TextOut(x,y,str(round(gsttot,2)))
                 x=0;y+=40;hDC.TextOut(x,y,"Discount")
-                x+=280;hDC.TextOut(x,y,str(round(discount,2)))
+                x+=280;hDC.TextOut(x,y,str(round(float(discount),2)))
                 x=0;y+=40;hDC.TextOut(x,y,"Total Amount Payable")
-                x+=280;hDC.TextOut(x,y,str(round(gtot-discount)))
+                x+=350;hDC.TextOut(x,y,str(round(gtot-float(discount))))
                 y+=60;x=120;hDC.TextOut(x,y,"Thank You!")
                 #finally:
                 hDC.EndPage()
