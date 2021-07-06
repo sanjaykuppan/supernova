@@ -2,3 +2,6 @@ storedetail.json
 *.xlsx
 *.db
 MSW.db-journal
+freeze.py
+dist
+build
